@@ -1,46 +1,18 @@
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { v4: uuidv4 } = require("uuid");
-const mysql = require("mysql2/promise");
+const { query } = require("./db");
 
-console.log(process.env.DB_HOST); // Debugging line
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
 
-const DB_HOST = process.env.DB_HOST || "localhost";
-const DB_PORT = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
-const DB_USER =
-  process.env.DB_USER && process.env.DB_USER.trim()
-    ? process.env.DB_USER.trim()
-    : "root";
-const DB_PASSWORD =
-  process.env.DB_PASSWORD && process.env.DB_PASSWORD.length
-    ? process.env.DB_PASSWORD
-    : "P@ssw0rd"; // empty password (local dev)
 
-const DB_NAME = process.env.DB_NAME || "companizer_db_prod";
-
-const pool = mysql.createPool({
-  host: DB_HOST,
-  port: DB_PORT,
-  user: DB_USER,
-  password: DB_PASSWORD,
-  database: DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
-
-
-// Helper query function
-async function query(sql, params) {
-  const [rows] = await pool.execute(sql, params);
-  return rows;
-}
 
 // Middleware
 app.use(
@@ -55,7 +27,6 @@ function generateToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
-// JWT middleware
 function authMiddleware(req, res, next) {
   const authHeader = req.headers["authorization"];
   if (!authHeader) return res.status(401).json({ message: "No token" });
@@ -69,13 +40,21 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    // { userId, organizationId, role }
-    req.user = payload;
+    // Expecting payload: { accountable_id, organization_id, role }
+
+    req.user = {
+      id: payload.accountable_id,              // <-- guaranteed user id
+      accountable_id: payload.accountable_id,          // <-- keep both for convenience
+      organization_id: payload.organization_id,
+      role: payload.role
+    };
+
     next();
   } catch (err) {
     return res.status(401).json({ message: "Token invalid or expired" });
   }
 }
+
 
 // ======================================================
 // AUTH ROUTES
@@ -135,7 +114,7 @@ app.post("/api/auth/register-organization", async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
       [orgName, domain, email, numUsers, numStores, totalPrice, tenantId]
     );
-    const organizationId = orgResult.insertId;
+    const organization_id = orgResult.insertId;
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
@@ -146,25 +125,25 @@ app.post("/api/auth/register-organization", async (req, res) => {
       `INSERT INTO users
        (uuid, first_name, last_name, email, password_hash, role, organization_id, entity_id, created_at)
        VALUES (?, ?, ?, ?, ?, 'admin', ?, NULL, NOW())`,
-      [userUuid, firstName, lastName, email, passwordHash, organizationId]
+      [userUuid, firstName, lastName, email, passwordHash, organization_id]
     );
-    const userId = userResult.insertId;
+    const accountable_id = userResult.insertId;
 
     // Build response objects
     const user = {
-      id: userId,
+      id: accountable_id,
       uuid: userUuid,
       firstName,
       lastName,
       email,
       role: "admin",
-      organizationId,
+      organization_id,
       entityId: null,
       createdAt: new Date(),
     };
 
     const organization = {
-      id: organizationId,
+      id: organization_id,
       name: orgName,
       domain,
       email,
@@ -176,8 +155,8 @@ app.post("/api/auth/register-organization", async (req, res) => {
     };
 
     const token = generateToken({
-      userId,
-      organizationId,
+      accountable_id,
+      organization_id,
       role: "admin",
     });
 
@@ -226,7 +205,7 @@ app.post("/api/auth/login", async (req, res) => {
       lastName: userRow.last_name,
       email: userRow.email,
       role: userRow.role,
-      organizationId: userRow.organization_id,
+      organization_id: userRow.organization_id,
       entityId: userRow.entity_id,
       createdAt: userRow.created_at,
     };
@@ -244,8 +223,8 @@ app.post("/api/auth/login", async (req, res) => {
     };
 
     const token = generateToken({
-      userId: user.id,
-      organizationId: organization.id,
+      accountable_id: user.id,
+      organization_id: organization.id,
       role: user.role,
     });
 
@@ -271,20 +250,38 @@ const isSafeIdentifier = (name) => /^[a-zA-Z0-9_]+$/.test(name);
 // GET all rows for a collection, for current org
 app.get("/api/subcollections/:collectionName", authMiddleware, async (req, res) => {
   const { collectionName } = req.params;
-  const { organizationId } = req.user;
+  const { organization_id } = req.user;
 
   if (!isSafeIdentifier(collectionName)) {
     return res.status(400).json({ message: "Invalid collection name" });
   }
 
   try {
-    const sql = `
+    // Pagination
+    let { limit, offset } = req.query;
+    limit = parseInt(limit);
+    offset = parseInt(offset);
+
+    let sql = `
       SELECT *
       FROM ${collectionName}
       WHERE organization_id = ?
     `;
-    const rows = await query(sql, [organizationId]);
+    const params = [organization_id];
 
+    if (!isNaN(limit) && !isNaN(offset)) {
+      sql += " LIMIT ? OFFSET ?";
+      params.push(limit, offset);
+    }
+
+    const rows = await query(sql, params);
+
+    // Optional: Get total count for frontend pagination UI
+    const countSql = `SELECT COUNT(*) as total FROM ${collectionName} WHERE organization_id = ?`;
+    const countResult = await query(countSql, [organization_id]);
+    const total = countResult[0].total;
+
+    res.set('X-Total-Count', total);
     res.json(rows);
   } catch (err) {
     console.error("Error fetching documents:", err);
@@ -295,7 +292,7 @@ app.get("/api/subcollections/:collectionName", authMiddleware, async (req, res) 
 // POST create row in a collection
 app.post("/api/subcollections/:collectionName", authMiddleware, async (req, res) => {
   const { collectionName } = req.params;
-  const { organizationId } = req.user;
+  const { organization_id, accountable_id } = req.user;
   const body = req.body || {};
 
   if (!isSafeIdentifier(collectionName)) {
@@ -307,7 +304,8 @@ app.post("/api/subcollections/:collectionName", authMiddleware, async (req, res)
     const data = { ...body };
     delete data.id;
     delete data.organization_id;
-    data.organization_id = organizationId;
+    data.organization_id = organization_id;
+    data.accountable_id = accountable_id;
 
     const columns = Object.keys(data);
     if (columns.length === 0) {
@@ -321,6 +319,8 @@ app.post("/api/subcollections/:collectionName", authMiddleware, async (req, res)
       INSERT INTO ${collectionName} (${columns.join(", ")})
       VALUES (${placeholders})
     `;
+
+    console.log(sql, values); // Debugging line
 
     const result = await query(sql, values);
 
@@ -337,7 +337,7 @@ app.put(
   authMiddleware,
   async (req, res) => {
     const { collectionName, documentId } = req.params;
-    const { organizationId } = req.user;
+    const { organization_id } = req.user;
     const body = req.body || {};
 
     if (!isSafeIdentifier(collectionName)) {
@@ -363,7 +363,7 @@ app.put(
         WHERE id = ? AND organization_id = ?
       `;
 
-      await query(sql, [...values, documentId, organizationId]);
+      await query(sql, [...values, documentId, organization_id]);
 
       res.json({ message: "Updated" });
     } catch (err) {
@@ -379,7 +379,7 @@ app.delete(
   authMiddleware,
   async (req, res) => {
     const { collectionName, documentId } = req.params;
-    const { organizationId } = req.user;
+    const { organization_id } = req.user;
 
     if (!isSafeIdentifier(collectionName)) {
       return res.status(400).json({ message: "Invalid collection name" });
@@ -390,7 +390,7 @@ app.delete(
         DELETE FROM ${collectionName}
         WHERE id = ? AND organization_id = ?
       `;
-      await query(sql, [documentId, organizationId]);
+      await query(sql, [documentId, organization_id]);
 
       res.json({ message: "Deleted" });
     } catch (err) {
@@ -406,7 +406,7 @@ app.get(
   authMiddleware,
   async (req, res) => {
     const { collectionName, documentId } = req.params;
-    const { organizationId } = req.user;
+    const { organization_id } = req.user;
 
     if (!isSafeIdentifier(collectionName)) {
       return res.status(400).json({ message: "Invalid collection name" });
@@ -419,7 +419,7 @@ app.get(
         WHERE id = ? AND organization_id = ?
         LIMIT 1
       `;
-      const rows = await query(sql, [documentId, organizationId]);
+      const rows = await query(sql, [documentId, organization_id]);
 
       if (!rows.length) {
         return res.status(404).json({ message: "Document not found" });
@@ -440,7 +440,7 @@ app.get(
   async (req, res) => {
     const { collectionName } = req.params;
     const { field, value } = req.query;
-    const { organizationId } = req.user;
+    const { organization_id } = req.user;
 
     if (!isSafeIdentifier(collectionName)) {
       return res.status(400).json({ message: "Invalid collection name" });
@@ -461,7 +461,7 @@ app.get(
         WHERE organization_id = ?
           AND ${field} = ?
       `;
-      const rows = await query(sql, [organizationId, value]);
+      const rows = await query(sql, [organization_id, value]);
 
       res.json(rows);
     } catch (err) {
@@ -479,7 +479,7 @@ app.get(
   async (req, res) => {
     const { collectionName } = req.params;
     const { field, value } = req.query;
-    const { organizationId } = req.user;
+    const { organization_id } = req.user;
 
     if (!isSafeIdentifier(collectionName)) {
       return res.status(400).json({ message: "Invalid collection name" });
@@ -501,7 +501,7 @@ app.get(
         WHERE organization_id = ?
           AND ${field} = ?
       `;
-      const rows = await query(sql, [organizationId, value]);
+      const rows = await query(sql, [organization_id, value]);
 
       res.json(rows);
     } catch (err) {
