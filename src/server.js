@@ -270,7 +270,7 @@ app.get("/api/subcollections/:collectionName", authMiddleware, async (req, res) 
 
     let params = [organization_id];
 
-    if (collectionName === 'organizations') {
+    if (['organizations', 'authorizations'].includes(collectionName)) {
       sql = `
       SELECT *
       FROM ${collectionName}
@@ -290,7 +290,7 @@ app.get("/api/subcollections/:collectionName", authMiddleware, async (req, res) 
     // Optional: Get total count for frontend pagination UI
     let countSql = `SELECT COUNT(*) as total FROM ${collectionName} WHERE organization_id = ?`;
 
-    if (collectionName === 'organizations') {
+    if (['organizations', 'authorizations'].includes(collectionName)) {
       countSql = `SELECT COUNT(*) as total FROM ${collectionName}`;
     }
 
@@ -321,14 +321,13 @@ app.post("/api/subcollections/:collectionName", authMiddleware, async (req, res)
     delete data.id;
     delete data.organization_id;
 
-    if (collectionName !== 'organizations') {
+    if (!['organizations', 'authorizations'].includes(collectionName)) {
       data.organization_id = organization_id;
-
-      if (collectionName !== 'users') {
-        data.accountable_id = accountable_id;
-      }
     }
 
+    if (collectionName !== 'users') {
+      data.accountable_id = accountable_id;
+    }
 
     const columns = Object.keys(data);
     if (columns.length === 0) {
@@ -436,12 +435,22 @@ app.get(
     }
 
     try {
-      const sql = `
+      let sql = `
         SELECT *
         FROM ${collectionName}
         WHERE id = ? AND organization_id = ?
         LIMIT 1
       `;
+
+      if (['organizations', 'authorizations', 'users'].includes(collectionName)) {
+        sql = `
+          SELECT *
+          FROM ${collectionName}
+          WHERE id = ?
+          LIMIT 1
+        `;
+      }
+
       const rows = await query(sql, [documentId, organization_id]);
 
       if (!rows.length) {
