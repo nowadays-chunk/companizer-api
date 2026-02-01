@@ -267,7 +267,18 @@ app.get("/api/subcollections/:collectionName", authMiddleware, async (req, res) 
       FROM ${collectionName}
       WHERE organization_id = ?
     `;
-    const params = [organization_id];
+
+    let params = [organization_id];
+
+    if (collectionName === 'organizations') {
+      sql = `
+      SELECT *
+      FROM ${collectionName}
+    `;
+
+      params = []
+    }
+
 
     if (!isNaN(limit) && !isNaN(offset)) {
       sql += " LIMIT ? OFFSET ?";
@@ -277,7 +288,12 @@ app.get("/api/subcollections/:collectionName", authMiddleware, async (req, res) 
     const rows = await query(sql, params);
 
     // Optional: Get total count for frontend pagination UI
-    const countSql = `SELECT COUNT(*) as total FROM ${collectionName} WHERE organization_id = ?`;
+    let countSql = `SELECT COUNT(*) as total FROM ${collectionName} WHERE organization_id = ?`;
+
+    if (collectionName === 'organizations') {
+      countSql = `SELECT COUNT(*) as total FROM ${collectionName}`;
+    }
+
     const countResult = await query(countSql, [organization_id]);
     const total = countResult[0].total;
 
@@ -304,8 +320,15 @@ app.post("/api/subcollections/:collectionName", authMiddleware, async (req, res)
     const data = { ...body };
     delete data.id;
     delete data.organization_id;
-    data.organization_id = organization_id;
-    data.accountable_id = accountable_id;
+
+    if (collectionName !== 'organizations') {
+      data.organization_id = organization_id;
+
+      if (collectionName !== 'users') {
+        data.accountable_id = accountable_id;
+      }
+    }
+
 
     const columns = Object.keys(data);
     if (columns.length === 0) {
