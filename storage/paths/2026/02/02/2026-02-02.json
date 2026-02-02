@@ -1,0 +1,23 @@
+[
+  {
+    "id": "fd779e15-2e55-4960-aaf5-36abc9895c34",
+    "fileName": "1770070482587-888274367-invoice-24.pdf",
+    "originalName": "invoice-24.pdf",
+    "mimeType": "application/pdf",
+    "size": 278621,
+    "path": "C:\\Users\\DELL\\Documents\\companizer-api\\storage\\2026\\1\\1\\vendor_invoices\\2026\\02\\02\\1770070482587-888274367-invoice-24.pdf",
+    "relativePath": "2026\\1\\1\\vendor_invoices\\2026\\02\\02\\1770070482587-888274367-invoice-24.pdf",
+    "entityType": "vendor_invoices",
+    "entityId": "24",
+    "category": "invoice",
+    "tags": [
+      "important",
+      "negociated"
+    ],
+    "description": "The customer has left the city",
+    "uploadedBy": 1,
+    "accountableId": 1,
+    "organizationId": 1,
+    "createdAt": "2026-02-02T22:14:42.716Z"
+  }
+]

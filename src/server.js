@@ -544,6 +544,377 @@ app.get(
 );
 
 // ======================================================
+// ======================================================
+// ======================================================
+// FILE UPLOAD ROUTES (Strictly Nested Storage & Daily Metadata)
+// ======================================================
+const multer = require("multer");
+const fs = require("fs");
+
+// Base storage directory
+const storageBaseDir = path.join(__dirname, "../storage");
+
+// Helper to get formatted date parts
+function getDateParts(dateObj) {
+  const yyyy = dateObj.getFullYear().toString();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const dd = String(dateObj.getDate()).padStart(2, "0");
+  return { yyyy, mm, dd };
+}
+
+// Multer storage engine - saves to temp dir first, we move it later to deep structure
+const diskStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const tempDir = path.join(storageBaseDir, "temp");
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    cb(null, tempDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + "-" + file.originalname);
+  },
+});
+
+const upload = multer({ storage: diskStorage });
+
+// Helper: Append metadata to daily log
+function appendToDailyLog(meta) {
+  const now = new Date();
+  const { yyyy, mm, dd } = getDateParts(now);
+  const logDir = path.join(storageBaseDir, "paths", yyyy, mm, dd);
+  const logFile = path.join(logDir, `${yyyy}-${mm}-${dd}.json`);
+
+  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+
+  let dailyData = [];
+  if (fs.existsSync(logFile)) {
+    try {
+      dailyData = JSON.parse(fs.readFileSync(logFile, "utf8"));
+    } catch (e) {
+      console.error("Error reading daily log, starting fresh:", e);
+    }
+  }
+  dailyData.push(meta);
+  fs.writeFileSync(logFile, JSON.stringify(dailyData, null, 2), "utf8");
+}
+
+// POST /api/documents/upload
+app.post(
+  "/api/documents/upload",
+  authMiddleware,
+  upload.array("files"),
+  async (req, res) => {
+    const {
+      entityType,
+      entityId,
+      category,
+      tags,
+      description,
+    } = req.body;
+    const { id: userId, organization_id, accountable_id } = req.user;
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "No files uploaded" });
+    }
+
+    try {
+      const savedDocs = [];
+      const now = new Date();
+      const { yyyy, mm, dd } = getDateParts(now);
+
+      const orgIdStr = String(organization_id);
+      const accIdStr = String(accountable_id || userId);
+      const entTypeStr = entityType || "uncategorized";
+
+      // Target Format: storage/{yyyy}/{organization_id}/{accountable_id}/{entityType}/{yyyy}/{mm}/{dd}/{filename}
+      const finalDir = path.join(
+        storageBaseDir,
+        yyyy,
+        orgIdStr,
+        accIdStr,
+        entTypeStr,
+        yyyy,
+        mm,
+        dd
+      );
+
+      if (!fs.existsSync(finalDir)) {
+        fs.mkdirSync(finalDir, { recursive: true });
+      }
+
+      for (const file of req.files) {
+        // Move file from temp to final
+        const oldPath = file.path;
+        const newPath = path.join(finalDir, file.filename);
+
+        fs.renameSync(oldPath, newPath);
+
+        const newDoc = {
+          id: uuidv4(),
+          fileName: file.filename,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          path: newPath, // Full absolute path
+          relativePath: path.relative(storageBaseDir, newPath),
+
+          entityType: entTypeStr,
+          entityId: entityId || null,
+          category: category || null,
+          tags: tags ? JSON.parse(tags) : null,
+          description: description || null,
+
+          uploadedBy: userId,
+          accountableId: accountable_id,
+          organizationId: organization_id,
+          createdAt: now.toISOString(),
+        };
+
+        appendToDailyLog(newDoc);
+        savedDocs.push(newDoc);
+      }
+
+      res.status(201).json({
+        message: "Files uploaded successfully",
+        files: savedDocs,
+      });
+    } catch (err) {
+      console.error("Error uploading files:", err);
+      res.status(500).json({ message: "Internal server error during upload" });
+    }
+  }
+);
+
+// GET /api/documents/download/:base64Path
+app.get("/api/documents/download/:base64Path", authMiddleware, async (req, res) => {
+  const { base64Path } = req.params;
+
+  if (!base64Path) {
+    return res.status(400).json({ message: "Missing path parameter" });
+  }
+
+  let docPath;
+  try {
+    docPath = Buffer.from(base64Path, 'base64').toString('utf8');
+  } catch (e) {
+    return res.status(400).json({ message: "Invalid path encoding" });
+  }
+
+  // Basic security check
+  const resolvedPath = path.resolve(docPath);
+  if (!resolvedPath.startsWith(path.resolve(storageBaseDir))) {
+    // Optional: enforce strict base dir check
+    // return res.status(403).json({ message: "Access denied" });
+  }
+
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(404).json({ message: "File not found" });
+  }
+
+  res.download(resolvedPath);
+});
+
+// GET /api/documents (Search)
+app.get("/api/documents", authMiddleware, async (req, res) => {
+  const { entityType, entityId } = req.query;
+  const { organization_id } = req.user;
+
+  try {
+    const results = [];
+    const pathsDir = path.join(storageBaseDir, "paths");
+
+    if (fs.existsSync(pathsDir)) {
+      const years = fs.readdirSync(pathsDir);
+      for (const y of years) {
+        const yDir = path.join(pathsDir, y);
+        if (!fs.statSync(yDir).isDirectory()) continue;
+
+        const months = fs.readdirSync(yDir);
+        for (const m of months) {
+          const mDir = path.join(yDir, m);
+          if (!fs.statSync(mDir).isDirectory()) continue;
+
+          const days = fs.readdirSync(mDir);
+          for (const d of days) {
+            const dDir = path.join(mDir, d);
+            if (!fs.statSync(dDir).isDirectory()) continue;
+
+            const files = fs.readdirSync(dDir);
+            for (const f of files) {
+              if (!f.endsWith(".json")) continue;
+
+              const logPath = path.join(dDir, f);
+              try {
+                const raw = fs.readFileSync(logPath, "utf8");
+                const entries = JSON.parse(raw);
+
+                for (const entry of entries) {
+                  if (entry.organizationId === organization_id) {
+                    let match = true;
+                    if (entityType && entry.entityType !== entityType) match = false;
+                    if (entityId && String(entry.entityId) !== String(entityId)) match = false;
+
+                    if (match) {
+                      // Encode path to Base64
+                      const safePath = Buffer.from(entry.path).toString('base64');
+                      results.push({ ...entry, path: safePath });
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error("Error parsing log:", logPath);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(results);
+  } catch (err) {
+    console.error("Error searching documents:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+
+
+
+// ======================================================
+// EXPORT ROUTES
+// ======================================================
+const XLSX = require("xlsx");
+
+app.post("/api/admin/export", authMiddleware, async (req, res) => {
+  const { entityType, columns, conditions, format, pagination, dateRange } = req.body;
+  const { organization_id, role } = req.user;
+
+  if (!entityType || !columns || !Array.isArray(columns) || columns.length === 0) {
+    return res.status(400).json({ message: "Invalid export configuration" });
+  }
+
+  if (!isSafeIdentifier(entityType)) {
+    return res.status(400).json({ message: "Invalid entity type" });
+  }
+
+  for (const col of columns) {
+    if (!isSafeIdentifier(col)) {
+      return res.status(400).json({ message: "Invalid column name: " + col });
+    }
+  }
+
+  try {
+    let sql = `SELECT ${columns.join(", ")} FROM ${entityType} WHERE organization_id = ?`;
+    const params = [organization_id];
+
+    // Handle global tables (if any)
+    if (['organizations', 'authorizations', 'users'].includes(entityType)) {
+      if (entityType === 'organizations' || entityType === 'authorizations') {
+        sql = `SELECT ${columns.join(", ")} FROM ${entityType} WHERE 1=1`;
+        params.length = 0;
+      }
+    }
+
+    // Apply Conditions (Filters)
+    if (conditions && Array.isArray(conditions) && conditions.length > 0) {
+      for (const cond of conditions) {
+        const { column, operator, value } = cond;
+        if (!isSafeIdentifier(column)) continue;
+
+        let sqlOp = "=";
+        switch (operator) {
+          case "=": sqlOp = "="; break;
+          case "!=": sqlOp = "!="; break;
+          case ">": sqlOp = ">"; break;
+          case ">=": sqlOp = ">="; break;
+          case "<": sqlOp = "<"; break;
+          case "<=": sqlOp = "<="; break;
+          case "LIKE": sqlOp = "LIKE"; break;
+          case "IN": sqlOp = "IN"; break;
+          default: continue;
+        }
+
+        if (sqlOp === "IN") {
+          let inValues = [];
+          if (Array.isArray(value)) {
+            inValues = value;
+          } else if (typeof value === 'string') {
+            inValues = value.split(',').map(v => v.trim());
+          }
+          if (inValues.length > 0) {
+            const placeholders = inValues.map(() => "?").join(",");
+            sql += ` AND ${column} IN (${placeholders})`;
+            params.push(...inValues);
+          }
+        } else {
+          if (sqlOp === 'LIKE') {
+            sql += ` AND ${column} LIKE ?`;
+            params.push(`%${value}%`);
+          } else {
+            sql += ` AND ${column} ${sqlOp} ?`;
+            params.push(value);
+          }
+        }
+      }
+    }
+
+    // Apply Date Range (on created_at usually, or date_calculated if specified?)
+    // Defaulting to 'created_at' if exists, or ignore if not sure. 
+    // Ideally user specifies column, but for now generic handling:
+    if (dateRange && (dateRange.from || dateRange.to)) {
+      // Basic check if table has created_at
+      // We'll trust created_at exists or it will error. 
+      // Safest is to only apply if we know it exists, but let's assume standard tables have it.
+      if (dateRange.from) {
+        sql += " AND created_at >= ?";
+        params.push(dateRange.from);
+      }
+      if (dateRange.to) {
+        sql += " AND created_at <= ?";
+        params.push(dateRange.to);
+      }
+    }
+
+    // Apply Pagination
+    if (pagination) {
+      const limit = parseInt(pagination.limit);
+      const offset = parseInt(pagination.offset);
+
+      if (!isNaN(limit) && !isNaN(offset)) {
+        sql += " LIMIT ? OFFSET ?";
+        params.push(limit, offset);
+      }
+    }
+
+    console.log([sql, params])
+    // Execute Query
+    const rows = await query(sql, params);
+
+    // Generate Excel/CSV
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, entityType);
+
+    const exportFormat = format === 'csv' ? 'csv' : 'xlsx';
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: exportFormat });
+
+    // Set Headers
+    const fileName = `${entityType}_export_${new Date().toISOString().split('T')[0]}.${exportFormat}`;
+    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+    res.setHeader("Content-Type", exportFormat === 'csv' ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    res.send(buffer);
+
+  } catch (err) {
+    console.error("Export error:", err);
+    res.status(500).json({ message: "Export failed" });
+  }
+});
+
+
+// ======================================================
 // START
 // ======================================================
 app.listen(PORT, () => {

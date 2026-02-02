@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS users (
         REFERENCES organizations(id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+DROP TABLE authorizations;
 -- ============================================================================
 -- 3. Authorizations Table
 -- ============================================================================
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS authorizations (
     authorized_role VARCHAR(50) NULL COMMENT 'Role granted (super_admin, admin, manager, etc)',
     authorized_entity VARCHAR(191) NULL COMMENT 'Specific entity type authorized',
     authorized_page VARCHAR(191) NULL COMMENT 'Page/route authorized',
-    authorized_actions JSON NULL COMMENT 'Array of actions: ["view","create","edit","delete","validate","approve"]',
+    authorized_actions VARCHAR(255) NULL COMMENT 'Array of actions: ["view","create","edit","delete","validate","approve"]',
     
     -- Specific entity row(s) authorization
     entity_type VARCHAR(191) NULL COMMENT 'Collection name (e.g., cash_flow_forecasts)',

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "fa9386cc-9378-4be6-a0c4-2ee8ab60f101",
+    "fileName": "1770068498448-188432490-invoice-24.pdf",
+    "originalName": "invoice-24.pdf",
+    "mimeType": "application/pdf",
+    "size": 272401,
+    "path": "C:\\Users\\DELL\\Documents\\companizer-api\\storage\\files\\1770068498448-188432490-invoice-24.pdf",
+    "entityType": "vendor_invoices",
+    "entityId": "24",
+    "category": "invoice",
+    "tags": [
+      "abc"
+    ],
+    "description": "fdsqfsdfdsqfsdq",
+    "uploadedBy": 1,
+    "organizationId": 1,
+    "createdAt": "2026-02-02T21:41:38.765Z"
+  }
+]
