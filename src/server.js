@@ -12,14 +12,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
 
-
-
 // Middleware
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "http://localhost:5173", "https://nowadays-chunk.github.io"], // adjust
-  })
-);
+app.use(cors());
+
 app.use(express.json());
 
 // JWT helper
