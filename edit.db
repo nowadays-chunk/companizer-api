@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS `entity_comments_history` (
   `processing_step` VARCHAR(100),
   `unit_price` DECIMAL(15,2),
   `accountable_id` CHAR(36),
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_at` TIMESTAMP NULL, 
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `manager_action_logs` (
@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS `manager_action_logs` (
   `ip_address` VARCHAR(255),
   `status` VARCHAR(100),
   `user_agent` VARCHAR(255),
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_at` TIMESTAMP NULL, 
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `entity_workflow_rules` (
@@ -44,8 +44,8 @@ CREATE TABLE IF NOT EXISTS `entity_workflow_rules` (
     action_role VARCHAR(100), -- 'email_notification', 'add_tag', 'validation_error'
     action_payload JSON, -- JSON content for the action (template IDs, tag names, etc.)
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `created_at` TIMESTAMP NULL, 
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP  
     INDEX idx_collection_criteria (collection_name, criteria_name)
 );
 
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS  organizations (
     num_stores INT NOT NULL,
     price DECIMAL(10 , 2 ) NOT NULL,
     tenant_id CHAR(36) NOT NULL,
-    created_at DATETIME NOT NULL,
+    `created_at` TIMESTAMP NULL
     INDEX idx_org_name (name)
 )  ENGINE=INNODB;
 

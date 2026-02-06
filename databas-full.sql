@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS entity_rows_stack (
     stack_name VARCHAR(191) NULL COMMENT 'Descriptive name for the stack',
     entity_type VARCHAR(191) NOT NULL COMMENT 'Collection name (e.g., vendor_invoices)',
     entity_row_id BIGINT UNSIGNED NOT NULL COMMENT 'ID of the entity row',
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    
+    `created_at` TIMESTAMP NULL, 
+
     INDEX idx_stack (stack_id),
     INDEX idx_entity_row (entity_type, entity_row_id),
     INDEX idx_stack_entity (stack_id, entity_type),
@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS `entity_comments_history` (
   `processing_step` VARCHAR(100),
   `unit_price` DECIMAL(15,2),
   `accountable_id` CHAR(36),
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_at` TIMESTAMP NULL, 
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `manager_action_logs` (
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS `manager_action_logs` (
   `ip_address` VARCHAR(255),
   `status` VARCHAR(100),
   `user_agent` VARCHAR(255),
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_at` TIMESTAMP NULL, 
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `entity_workflow_rules` (
@@ -64,8 +64,8 @@ CREATE TABLE IF NOT EXISTS `entity_workflow_rules` (
   `accountable_id` CHAR(36),
   `error_message` VARCHAR(255),
   `is_active` TINYINT(1) DEFAULT 0,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `created_at` TIMESTAMP NULL, 
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================================
@@ -80,9 +80,9 @@ CREATE TABLE IF NOT EXISTS organizations (
     num_stores INT NOT NULL DEFAULT 0,
     price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     tenant_id CHAR(36) NOT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    
+    `created_at` TIMESTAMP NULL, 
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  
     INDEX idx_org_name (name),
     INDEX idx_tenant (tenant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -102,8 +102,8 @@ CREATE TABLE IF NOT EXISTS users (
     organization_id BIGINT UNSIGNED NOT NULL,
     entity_id BIGINT UNSIGNED NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    `created_at` TIMESTAMP NULL, 
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     
     INDEX idx_users_org (organization_id),
     INDEX idx_users_email (email),
@@ -117,9 +117,6 @@ DROP TABLE authorizations;
 -- ============================================================================
 -- 3. Authorizations Table
 -- ============================================================================
-SELECT * FROM users;
-SELECT * FROM authorizations;
-
 DELETE FROM authorizations;
 CREATE TABLE IF NOT EXISTS authorizations (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -148,8 +145,8 @@ CREATE TABLE IF NOT EXISTS authorizations (
     -- Status
     is_active BOOLEAN DEFAULT TRUE,
     notes TEXT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    `created_at` TIMESTAMP NULL, 
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     
     INDEX idx_auth_user (authorized_user_id),
     INDEX idx_auth_entity (entity_type, entity_row_id),

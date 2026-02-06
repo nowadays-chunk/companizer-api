@@ -17,7 +17,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me';
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5173"], // adjust
+    origin: ["http://localhost:3000", "http://localhost:5173"; "https://nowadays-chunk.github.io"], // adjust
   })
 );
 app.use(express.json());
