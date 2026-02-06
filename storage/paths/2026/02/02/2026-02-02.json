@@ -19,5 +19,27 @@
     "accountableId": 1,
     "organizationId": 1,
     "createdAt": "2026-02-02T22:14:42.716Z"
+  },
+  {
+    "id": "f6a61f96-8c1d-4cde-be43-1f978e8c8b95",
+    "fileName": "1770072153616-38272135-invoice-244.pdf",
+    "originalName": "invoice-244.pdf",
+    "mimeType": "application/pdf",
+    "size": 278621,
+    "path": "C:\\Users\\DELL\\Documents\\companizer-api\\storage\\2026\\1\\1\\vendor_invoices\\2026\\02\\02\\1770072153616-38272135-invoice-244.pdf",
+    "relativePath": "2026\\1\\1\\vendor_invoices\\2026\\02\\02\\1770072153616-38272135-invoice-244.pdf",
+    "entityType": "vendor_invoices",
+    "entityId": "24",
+    "category": "contract",
+    "tags": [
+      "contract",
+      "avenant",
+      "one year"
+    ],
+    "description": "Avenant pour Leclerc renouvellabl",
+    "uploadedBy": 1,
+    "accountableId": 1,
+    "organizationId": 1,
+    "createdAt": "2026-02-02T22:42:33.642Z"
   }
 ]
