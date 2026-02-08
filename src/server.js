@@ -17,38 +17,99 @@ app.use(cors());
 
 app.use(express.json());
 
-// JWT helper
-function generateToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
-}
+const { authMiddleware } = require("./middleware/auth");
+const paymentTermsRoutes = require('./routes/paymentTerms');
+const vendorInvoicesRoutes = require('./routes/vendorInvoices');
+const accountsReceivableRoutes = require('./routes/accountsReceivable');
+const bankAccountsRoutes = require('./routes/bankAccounts');
+const budgetRoutes = require('./routes/budget');
+const generalLedgerRoutes = require('./routes/generalLedger');
+const taxationRoutes = require('./routes/taxation');
+const purchaseOrdersRoutes = require('./routes/purchaseOrders');
+const paymentRunsRoutes = require('./routes/paymentRuns');
+const creditorsLedgerRoutes = require('./routes/creditorsLedger');
 
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  if (!authHeader) return res.status(401).json({ message: "No token" });
+const creditManagementRoutes = require('./routes/creditManagement');
+const customerInvoicesRoutes = require('./routes/customerInvoices');
+const debtorAgingRoutes = require('./routes/debtorAging');
 
-  const parts = authHeader.split(" ");
-  if (parts.length !== 2 || parts[0] !== "Bearer") {
-    return res.status(401).json({ message: "Invalid token format" });
-  }
+const bankTransfersRoutes = require('./routes/bankTransfers');
+const reconciliationStatementsRoutes = require('./routes/reconciliationStatements');
+const foreignCurrencyAccountsRoutes = require('./routes/foreignCurrencyAccounts');
 
-  const token = parts[1];
+app.use('/api/financial/accounts-payable/payment-terms', paymentTermsRoutes);
+app.use('/api/financial/accounts-payable/vendor-invoices', vendorInvoicesRoutes);
+// app.use('/api/financial/accounts-receivable', accountsReceivableRoutes); // Removed legacy CRUD
+app.use('/api/financial/accounts-receivable/credit-management', creditManagementRoutes);
+app.use('/api/financial/accounts-receivable/customer-invoices', customerInvoicesRoutes);
+app.use('/api/financial/accounts-receivable/debtor-aging', debtorAgingRoutes);
 
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    // Expecting payload: { accountable_id, organization_id, role }
+// app.use('/api/financial/bank-accounts', bankAccountsRoutes); // Legacy
+const budgetAllocationsRoutes = require('./routes/budgetAllocations');
+const forecastingRoutes = require('./routes/forecasting');
+const varianceAnalysisRoutes = require('./routes/varianceAnalysis');
 
-    req.user = {
-      id: payload.accountable_id,              // <-- guaranteed user id
-      accountable_id: payload.accountable_id,          // <-- keep both for convenience
-      organization_id: payload.organization_id,
-      role: payload.role
-    };
+app.use('/api/financial/bank-accounts/bank-transfers', bankTransfersRoutes);
+app.use('/api/financial/bank-accounts/reconciliation', reconciliationStatementsRoutes);
+app.use('/api/financial/bank-accounts/foreign-currency', foreignCurrencyAccountsRoutes);
 
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: "Token invalid or expired" });
-  }
-}
+// app.use('/api/financial/budget', budgetRoutes); // Legacy
+const debtMaturitySchedulesRoutes = require('./routes/debtMaturitySchedules');
+const interestPaymentsRoutes = require('./routes/interestPayments');
+const loanAgreementsRoutes = require('./routes/loanAgreements');
+
+app.use('/api/financial/budget/allocations', budgetAllocationsRoutes);
+app.use('/api/financial/budget/forecasting', forecastingRoutes);
+app.use('/api/financial/budget/variance', varianceAnalysisRoutes);
+
+const chartOfAccountsRoutes = require('./routes/chartOfAccounts');
+const fiscalPeriodsRoutes = require('./routes/fiscalPeriods');
+const journalEntriesRoutes = require('./routes/journalEntries');
+const trialBalanceRoutes = require('./routes/trialBalance');
+
+app.use('/api/financial/debts/maturity', debtMaturitySchedulesRoutes);
+app.use('/api/financial/debts/interest', interestPaymentsRoutes);
+app.use('/api/financial/debts/loan-agreements', loanAgreementsRoutes);
+
+// app.use('/api/financial/general-ledger', generalLedgerRoutes); // Legacy
+app.use('/api/financial/general-ledger/chart-of-accounts', chartOfAccountsRoutes);
+app.use('/api/financial/general-ledger/fiscal-periods', fiscalPeriodsRoutes);
+app.use('/api/financial/general-ledger/journal-entries', journalEntriesRoutes);
+const equityInvestmentsRoutes = require('./routes/equityInvestments');
+const fixedIncomeInvestmentsRoutes = require('./routes/fixedIncomeInvestments');
+const investmentReturnsRoutes = require('./routes/investmentReturns');
+
+app.use('/api/financial/general-ledger/trial-balance', trialBalanceRoutes);
+
+app.use('/api/financial/investments/equity', equityInvestmentsRoutes);
+app.use('/api/financial/investments/fixed-income', fixedIncomeInvestmentsRoutes);
+app.use('/api/financial/investments/returns', investmentReturnsRoutes);
+
+const taxAuditsRoutes = require('./routes/taxAudits');
+const taxCreditsRoutes = require('./routes/taxCredits');
+const taxFilingsRoutes = require('./routes/taxFilings');
+const vatGstRecordsRoutes = require('./routes/vatGstRecords');
+const withholdingTaxesRoutes = require('./routes/withholdingTaxes');
+
+// app.use('/api/financial/taxation', taxationRoutes); // Legacy
+app.use('/api/financial/taxation/audits', taxAuditsRoutes);
+app.use('/api/financial/taxation/credits', taxCreditsRoutes);
+const cashFlowForecastsRoutes = require('./routes/cashFlowForecasts');
+const liquidityManagementRoutes = require('./routes/liquidityManagement');
+const treasuryPoliciesRoutes = require('./routes/treasuryPolicies');
+
+app.use('/api/financial/taxation/filings', taxFilingsRoutes);
+app.use('/api/financial/taxation/vat-gst', vatGstRecordsRoutes);
+app.use('/api/financial/taxation/withholding', withholdingTaxesRoutes);
+
+app.use('/api/financial/treasury/cash-flow', cashFlowForecastsRoutes);
+app.use('/api/financial/treasury/liquidity', liquidityManagementRoutes);
+app.use('/api/financial/treasury/policies', treasuryPoliciesRoutes);
+
+app.use('/api/financial/accounts-payable/purchase-orders', purchaseOrdersRoutes);
+app.use('/api/financial/accounts-payable/payment-runs', paymentRunsRoutes);
+app.use('/api/financial/accounts-payable/creditors-ledger', creditorsLedgerRoutes);
+
 
 
 // ======================================================
