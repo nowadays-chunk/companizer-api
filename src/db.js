@@ -5,18 +5,18 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 console.log("DB Config: Host:", process.env.DB_HOST, "User:", process.env.DB_USER); // Debug log
 
 
-const DB_HOST = process.env.DB_HOST || "sql7.freesqldatabase.com";
+const DB_HOST = process.env.DB_HOST || "localhost";
 const DB_PORT = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
 const DB_USER =
     process.env.DB_USER && process.env.DB_USER.trim()
         ? process.env.DB_USER.trim()
-        : "sql7815947";
+        : "root";
 const DB_PASSWORD =
     process.env.DB_PASSWORD && process.env.DB_PASSWORD.length
         ? process.env.DB_PASSWORD
-        : "mbtpwhmXvB"; // empty password (local dev)
+        : "P@ssw0rd"; // empty password (local dev)
 
-const DB_NAME = process.env.DB_NAME || "sql7815947";
+const DB_NAME = process.env.DB_NAME || "tailored_bridge_db";
 
 const pool = mysql.createPool({
     host: DB_HOST,
