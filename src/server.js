@@ -17,7 +17,7 @@ app.use(cors());
 
 app.use(express.json());
 
-const { authMiddleware } = require("./middleware/auth");
+const { authMiddleware, generateToken } = require("./middleware/auth");
 const paymentTermsRoutes = require('./routes/paymentTerms');
 const vendorInvoicesRoutes = require('./routes/vendorInvoices');
 const accountsReceivableRoutes = require('./routes/accountsReceivable');

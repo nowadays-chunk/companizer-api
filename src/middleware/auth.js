@@ -28,4 +28,8 @@ function authMiddleware(req, res, next) {
     }
 }
 
-module.exports = { authMiddleware };
+function generateToken(payload) {
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+}
+
+module.exports = { authMiddleware, generateToken };
