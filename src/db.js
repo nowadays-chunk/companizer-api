@@ -5,7 +5,7 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 console.log("DB Config: Host:", process.env.DB_HOST, "User:", process.env.DB_USER); // Debug log
 
 
-const DB_HOST = process.env.DB_HOST || "sql7.freesqldatabase.com";
+const DB_HOST = "sql7.freesqldatabase.com";
 const DB_PORT = process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306;
 const DB_USER =
     process.env.DB_USER && process.env.DB_USER.trim()
@@ -25,7 +25,7 @@ const pool = mysql.createPool({
     password: DB_PASSWORD,
     database: DB_NAME,
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: 60,
     queueLimit: 0,
 });
 
